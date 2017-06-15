@@ -1,9 +1,9 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-bash-brightgreen.svg)](https://www.gnu.org/software/bash/)
 
-# NEBNext Directed Demo Pipeline
+# NEBNext Direct Demo Pipeline
 
-This repository provides a minimal pipeline to process data generated with _NEBNext Directed_ kits.  It serves two purposes:
+This repository provides a minimal pipeline to process data generated with _NEBNext Direct_ kits.  It serves two purposes:
 
 1. Provides a pipeline to generate BAMs and somatic variants in VCF format that can be used as-is in a non-production setting
 2. Documents clearly a set of processing steps that can be transferred into any pipelining environment
