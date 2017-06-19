@@ -35,7 +35,7 @@ OUT=""
 BED=""
 SAMPLE="testsample"
 THREADS=4
-MIN=2
+MIN=1
 
 usage() {
   cat << EOF
@@ -87,15 +87,22 @@ source $P/common.sh
 initialize
 
 ################################################################################
-# Run the pipeline
+# Paths that are created/used in the pipeline
 ################################################################################
+interval_list="$OUT/targets.interval_list"
 raw_unmapped_bam="$OUT/raw.unmapped.bam"
 raw_mapped_bam="$OUT/raw.mapped.bam"
-raw_deduped_bam="$OUT/raw.deduped.bam"
+raw_deduped_base="$OUT/raw.deduped"
+raw_deduped_bam="${raw_deduped_base}.bam"
 grouped_bam="$OUT/grouped.bam"
 cons_unmapped_bam="$OUT/consensus.unmapped.bam"
 cons_mapped_bam="$OUT/consensus.mapped.bam"
-cons_filtered_bam="$OUT/consensus.filtered.bam"
+cons_filtered_base="$OUT/consensus.filtered"
+cons_filtered_bam="${cons_filtered_base}.bam"
+
+################################################################################
+# Run the pipeline
+################################################################################
 
 execute "mkdir -p $OUT"
 
@@ -119,7 +126,7 @@ execute "java -Xmx256m -jar $picard SamToFastq INPUT=$raw_unmapped_bam F=/dev/st
 execute "java -Xmx4g -jar $picard MarkDuplicates CREATE_INDEX=true" \
         "I=$raw_mapped_bam O=$raw_deduped_bam M=$OUT/duplicate_metrics.txt BARCODE_TAG=RX"
 
-
+################################################################################
 banner "Generating and re-aligning consensus reads..."
 
 execute "java -Xmx4g -jar $fgbio GroupReadsByUmi" \
@@ -147,6 +154,29 @@ execute "java -Xmx4g -jar $fgbio FilterConsensusReads" \
         "--ref $REF" \
         "--min-reads=$MIN --min-base-quality=$QUAL"
 
+################################################################################
+banner "Generating Metrics"
+
+execute "java -Xmx4g -jar $picard BedToIntervalList " \
+        "I=$BED O=$interval_list SD=$REF"
+
+execute "java -Xmx4g -jar $picard CollectAlignmentSummaryMetrics" \
+        "I=$raw_deduped_bam O=${raw_deduped_base}.alignment_summary_metrics.txt R=$REF"
+
+execute "java -Xmx4g -jar $picard CollectHsMetrics" \
+        "I=$raw_deduped_bam O=${raw_deduped_base}.hs_metrics.txt" \
+        "PER_TARGET_COVERAGE=${raw_deduped_base}.per_target_coverage.txt" \
+        "R=$REF TI=$interval_list BI=$interval_list"
+
+execute "java -Xmx4g -jar $picard CollectAlignmentSummaryMetrics" \
+        "I=$cons_filtered_bam O=${cons_filtered_base}.alignment_summary_metrics.txt R=$REF"
+
+execute "java -Xmx4g -jar $picard CollectHsMetrics" \
+        "I=$cons_filtered_bam O=${cons_filtered_base}.hs_metrics.txt" \
+        "PER_TARGET_COVERAGE=${cons_filtered_base}.per_target_coverage.txt" \
+        "R=$REF TI=$interval_list BI=$interval_list"
+
+################################################################################
 for datatype in "raw" "consensus"; do
     banner "Calling and filtering variants in $datatype reads..."
 
@@ -162,15 +192,15 @@ for datatype in "raw" "consensus"; do
             "-G $REF" \
             "-N $SAMPLE -b $bam" \
             "-z 1 -c 1 -S 2 -E 3 -g 4 -F 0x700 -f 0.005" \
-            "-r 2 -q 40 -th $THREADS $BED" \
+            "-r 3 -q 30 -th $THREADS $BED" \
             "| awk '{if (\$6 != \$7) print}'" \
             "| $vddir/bin/teststrandbias.R" \
-            "| $vddir/bin/var2vcf_valid.pl -N $SAMPLE -E -f 0.005" \
+            "| $vddir/bin/var2vcf_valid.pl -N $SAMPLE -E -f 0.01" \
             "> $OUT/tmp.vcf"
     
     fasta_ext=${REF##*.}
     fasta_dir=$(dirname $REF)
-    dict="${fastq_dir}/$(basename $REF $fasta_ext)dict"
+    dict="${fasta_dir}/$(basename $REF $fasta_ext)dict"
     
     execute "java -Xmx2g -jar $picard SortVcf I=$OUT/tmp.vcf O=$OUT/sorted.vcf CREATE_INDEX=true SD=$dict"
     
@@ -181,8 +211,7 @@ for datatype in "raw" "consensus"; do
             "--min-mapping-quality 1" \
             "--end-repair-distance 15" \
             "--end-repair-p-value 0.05"
-                
-    
+
     execute "rm -f $OUT/tmp.vcf $OUT/sorted.vcf"
 done
 
