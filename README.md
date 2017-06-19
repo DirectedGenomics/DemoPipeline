@@ -31,10 +31,14 @@ The following files are created by the pipeline:
 * `raw.unmapped.bam`: A BAM file of all reads prior to mapping
 * `raw.mapped.bam`: A BAM file of reads post mapping with bwa
 * `raw.deduped.bam`: A BAM file of all reads after duplicate marking
+* `raw.deduped.alignment_summary_metrics.txt`: A text file containing summary metrics about the raw reads
+* `raw.deduped.hs_metrics.txt`: A text file containing metrics about the target enrichment in the raw reads
 * `grouped.bam`: A BAM file of reads grouped together by read positions and UMI
 * `consensus.unmapped.bam`: A BAM file of consensus reads prior to mapping
 * `consensus.mapped.bam`: A BAM file of consensus reads post mapping with bwa
 * `consensus.filtered.bam`: A BAM file of consensus reads after filtering to reduce errors
+* `consensus.filtered.alignment_summary_metrics.txt`: A text file containing summary metrics about the filtered consensus reads
+* `consensus.filtered.hs_metrics.txt`: A text file containing metrics about the target enrichment in the filtered consensus reads
 * `raw.vcf`: A VCF of variants called from the deduped raw reads
 * `consensus.vcf`: A VCF of variants called from the filtered consensus reads
 
@@ -65,7 +69,7 @@ Several files need to be generated from the reference FASTA file in order for th
 The pipeline can be retrieved either by cloning this repository:
 
 ```
-git clone http://link-to-repo-goes-here.git
+git clone https://github.com/DirectedGenomics/DemoPipeline.git
 ```
 
 or by downloading one of the prepackaged releases from the [Releases](./releases) page and unzipping it.
