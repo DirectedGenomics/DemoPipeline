@@ -182,12 +182,44 @@ for datatype in "raw" "consensus"; do
 
     if [ $datatype == "raw" ]; then 
         bam=$raw_deduped_bam
-        vcf=$OUT/raw.vcf
+        germline_vcf=$OUT/raw.germline.vcf.gz
+        somatic_vcf=$OUT/raw.somatic.vcf
     else
-        bam=$cons_filtered_bam; 
-        vcf=$OUT/consensus.vcf
+        bam=$cons_filtered_bam
+        germline_vcf=$OUT/consensus.germline.vcf.gz
+        somatic_vcf=$OUT/consensus.somatic.vcf
     fi
+    
+    # Germline Calling
+    execute "java -Xmx4g -jar $gatk HaplotypeCaller" \
+            "--reference $REF" \
+            "--intervals $BED" \
+            "--minPruning 3" \
+            "--maxNumHaplotypesInPopulation 200" \
+            "--emitRefConfidence GVCF" \
+            "--max_alternate_alleles 3" \
+            "--contamination_fraction_to_filter 0.0" \
+            "--input $bam" \
+            "--output $OUT/tmp.g.vcf.gz"
 
+    execute "$tabix $OUT/tmp.g.vcf.gz"
+
+    execute "java -Xmx4096m -jar /tmp/gatk-4.beta.1/gatk-package-4.beta.1-local.jar GenotypeGVCFs" \
+            "--reference $REF" \
+            "--intervals $BED" \
+            "--variant $OUT/tmp.g.vcf.gz" \
+            "--output $OUT/tmp.germline.unfiltered.vcf.gz"
+
+    execute "java -Xmx4096m -jar /Work/picard/build/libs/picard.jar FilterVcf" \
+             "VALIDATION_STRINGENCY=SILENT" \
+             "CREATE_INDEX=true" \
+             "I=$OUT/tmp.germline.unfiltered.vcf.gz" \
+             "O=$germline_vcf" \
+             "MIN_AB=0.2 MIN_DP=0 MIN_GQ=20 MAX_FS=50.0 MIN_QD=6.0"  
+
+    execute "rm $OUT/tmp.g.vcf.gz $OUT/tmp.germline.unfiltered.vcf.gz"
+
+    # Somatic Calling
     execute "$vddir/bin/VarDict" \
             "-G $REF" \
             "-N $SAMPLE -b $bam" \
@@ -206,7 +238,7 @@ for datatype in "raw" "consensus"; do
     
     execute "java -Xmx2g -jar $fgbio FilterSomaticVcf" \
             "--input $OUT/sorted.vcf" \
-            "--output $vcf" \
+            "--output $somatic_vcf" \
             "--bam $bam" \
             "--min-mapping-quality 1" \
             "--end-repair-distance 15" \
