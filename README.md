@@ -5,8 +5,8 @@
 
 This repository provides a minimal pipeline to process data generated with _NEBNext Direct_ kits.  It serves two purposes:
 
-1. Provides a pipeline to generate BAMs and somatic variants in VCF format that can be used as-is in a non-production setting
-2. Documents clearly a set of processing steps that can be transferred into any pipelining environment
+1. Provides a pipeline to generate BAMs, germline variants and somatic variants in VCF format that can be used as-is in a non-production setting.
+2. Documents clearly a set of processing steps that can be transferred into any pipelining environment.
 
 ## Pipeline Overview
 
@@ -16,6 +16,7 @@ The pipeline is implemented as a simple BASH script that uses the following open
 * [picard](https://broadinstitute.github.io/picard/) - used for various conversions, sorting, etc.
 * [fgbio](https://github.com/fulcrumgenomics/fgbio) - used for generating consensus reads and filtering somatic variants
 * [VarDictJava](https://github.com/AstraZeneca-NGS/VarDictJava) - to call somatic variants from the reads
+* [GATK4](https://software.broadinstitute.org/gatk/download/beta) - to call germline variants from the reads
 
 The pipeline has the following general structure:
 
@@ -25,6 +26,7 @@ The pipeline has the following general structure:
 4. Re-map the consensus reads to the genome
 5. Call and filter variants
 
+ Note that mark duplicates/generate consensus reads represent a branchpoint in the pipeline and produce separate BAM and VCF files.
 
 The following files are created by the pipeline:
 
@@ -39,8 +41,10 @@ The following files are created by the pipeline:
 * `consensus.filtered.bam`: A BAM file of consensus reads after filtering to reduce errors
 * `consensus.filtered.alignment_summary_metrics.txt`: A text file containing summary metrics about the filtered consensus reads
 * `consensus.filtered.hs_metrics.txt`: A text file containing metrics about the target enrichment in the filtered consensus reads
-* `raw.vcf`: A VCF of variants called from the deduped raw reads
-* `consensus.vcf`: A VCF of variants called from the filtered consensus reads
+* `raw.somatic.vcf`: A VCF of somatic variants called from the deduped raw reads
+* `raw.germline.vcf`: A VCF of germline variants called from the deduped raw reads
+* `consensus.somatic.vcf`: A VCF of somatic variants called from the filtered consensus reads
+* `consensus.germline.vcf`: A VCF of germline variants called from the filtered consensus reads'
 
 A production pipeline might choose to keep only the `raw.deduped.bam` and the `consensus.filtered.bam` BAM files and delete the remaining ones, but the intermediates are retained in the demonstration pipeline so that they may be examined.
 
@@ -64,6 +68,7 @@ Several files need to be generated from the reference FASTA file in order for th
 2. `bwa index ref.fa` to generate the BWA index
 3. `java -jar picard.jar CreateSequenceDictionary` to create the `.dict` or sequence dictionary file
 
+
 ### Downloading and Installing the Pipeline
 
 The pipeline can be retrieved either by cloning this repository:
@@ -72,7 +77,8 @@ The pipeline can be retrieved either by cloning this repository:
 git clone https://github.com/DirectedGenomics/DemoPipeline.git
 ```
 
-or by downloading one of the prepackaged releases from the [Releases](./releases) page and unzipping it.
+or by downloading one of the prepackaged releases from the [Releases](https://github.com/DirectedGenomics/DemoPipeline/releases) page and unzipping it.
+
 
 ### Executing the pipeline
 

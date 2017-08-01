@@ -36,6 +36,8 @@ BED=""
 SAMPLE="testsample"
 THREADS=4
 MIN=1
+GATKLINK="https://github.com/broadinstitute/gatk/releases/download/4.beta.3/gatk-4.beta.3.zip"
+GATKDIR="gatk-4.beta.3"
 
 usage() {
   cat << EOF
@@ -103,6 +105,20 @@ cons_filtered_bam="${cons_filtered_base}.bam"
 ################################################################################
 # Run the pipeline
 ################################################################################
+
+if [ ! -f $P/bin/gatk.jar ]; then
+    banner "Downloading GATK4..."
+    if [ $PLATFORM == "mac" ]; then
+        curl -Lso $P/$GATKDIR.zip $GATKLINK
+    elif [ $PLATFORM == "linux" ]; then
+        wget -q $GATKLINK
+    else
+        fail "Must use mac or linux platform."
+    fi
+    unzip $P/$GATKDIR.zip
+    mv $P/$GATKDIR/gatk-package-4.beta.3-local.jar $P/bin/gatk.jar
+    rm -r $P/$GATKDIR $P/$GATKDIR.zip
+fi
 
 execute "mkdir -p $OUT"
 
@@ -189,7 +205,7 @@ for datatype in "raw" "consensus"; do
         germline_vcf=$OUT/consensus.germline.vcf.gz
         somatic_vcf=$OUT/consensus.somatic.vcf
     fi
-    
+
     # Germline Calling
     execute "java -Xmx4g -jar $gatk HaplotypeCaller" \
             "--reference $REF" \
@@ -204,13 +220,13 @@ for datatype in "raw" "consensus"; do
 
     execute "$tabix $OUT/tmp.g.vcf.gz"
 
-    execute "java -Xmx4096m -jar /tmp/gatk-4.beta.1/gatk-package-4.beta.1-local.jar GenotypeGVCFs" \
+    execute "java -Xmx4096m -jar $gatk GenotypeGVCFs" \
             "--reference $REF" \
             "--intervals $BED" \
             "--variant $OUT/tmp.g.vcf.gz" \
             "--output $OUT/tmp.germline.unfiltered.vcf.gz"
-
-    execute "java -Xmx4096m -jar /Work/picard/build/libs/picard.jar FilterVcf" \
+    
+    execute "java -Xmx4096m -jar $picard FilterVcf" \
              "VALIDATION_STRINGENCY=SILENT" \
              "CREATE_INDEX=true" \
              "I=$OUT/tmp.germline.unfiltered.vcf.gz" \
