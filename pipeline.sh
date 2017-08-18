@@ -36,8 +36,8 @@ BED=""
 SAMPLE="testsample"
 THREADS=4
 MIN=1
-GATKLINK="https://github.com/broadinstitute/gatk/releases/download/4.beta.3/gatk-4.beta.3.zip"
-GATKDIR="gatk-4.beta.3"
+GATK_VERSION="4.beta.3"
+GATK_URL="https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip"
 
 usage() {
   cat << EOF
@@ -108,16 +108,16 @@ cons_filtered_bam="${cons_filtered_base}.bam"
 
 if [ ! -f $P/bin/gatk.jar ]; then
     banner "Downloading GATK4..."
-    if [ $PLATFORM == "mac" ]; then
-        curl -Lso $P/$GATKDIR.zip $GATKLINK
-    elif [ $PLATFORM == "linux" ]; then
-        wget -q $GATKLINK
+    if $(which wget > /dev/null); then
+         wget -qO $P/gatk.zip $GATK_URL
+     elif $(which curl > /dev/null); then
+        curl -Lso $P/gatk.zip $GATK_URL
     else
-        fail "Must use mac or linux platform."
+        fail "wget or curl must be installed and available in order to download GATK."
     fi
-    unzip $P/$GATKDIR.zip
-    mv $P/$GATKDIR/gatk-package-4.beta.3-local.jar $P/bin/gatk.jar
-    rm -r $P/$GATKDIR $P/$GATKDIR.zip
+    
+    unzip -p $P/gatk.zip gatk-${GATK_VERSION}/gatk-package-${GATK_VERSION}-local.jar > $P/bin/gatk.jar
+    rm $P/gatk.zip
 fi
 
 execute "mkdir -p $OUT"

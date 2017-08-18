@@ -59,6 +59,7 @@ In order to run the pipeline you will need:
 4. A working PERL installation
 5. A reference FASTA file with bwa index, fasta index and sequence dictionary (see `prepare-reference.sh` for help with this)
 6. A BED file of target regions
+7. Either `wget` or `curl`
 
 ### Preparing a Reference Sequence
 
