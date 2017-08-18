@@ -36,6 +36,8 @@ BED=""
 SAMPLE="testsample"
 THREADS=4
 MIN=1
+GATK_VERSION="4.beta.3"
+GATK_URL="https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip"
 
 usage() {
   cat << EOF
@@ -103,6 +105,20 @@ cons_filtered_bam="${cons_filtered_base}.bam"
 ################################################################################
 # Run the pipeline
 ################################################################################
+
+if [ ! -f $P/bin/gatk.jar ]; then
+    banner "Downloading GATK4..."
+    if $(which wget > /dev/null); then
+         wget -qO $P/gatk.zip $GATK_URL
+     elif $(which curl > /dev/null); then
+        curl -Lso $P/gatk.zip $GATK_URL
+    else
+        fail "wget or curl must be installed and available in order to download GATK."
+    fi
+    
+    unzip -p $P/gatk.zip gatk-${GATK_VERSION}/gatk-package-${GATK_VERSION}-local.jar > $P/bin/gatk.jar
+    rm $P/gatk.zip
+fi
 
 execute "mkdir -p $OUT"
 
@@ -182,12 +198,44 @@ for datatype in "raw" "consensus"; do
 
     if [ $datatype == "raw" ]; then 
         bam=$raw_deduped_bam
-        vcf=$OUT/raw.vcf
+        germline_vcf=$OUT/raw.germline.vcf.gz
+        somatic_vcf=$OUT/raw.somatic.vcf
     else
-        bam=$cons_filtered_bam; 
-        vcf=$OUT/consensus.vcf
+        bam=$cons_filtered_bam
+        germline_vcf=$OUT/consensus.germline.vcf.gz
+        somatic_vcf=$OUT/consensus.somatic.vcf
     fi
 
+    # Germline Calling
+    execute "java -Xmx4g -jar $gatk HaplotypeCaller" \
+            "--reference $REF" \
+            "--intervals $BED" \
+            "--minPruning 3" \
+            "--maxNumHaplotypesInPopulation 200" \
+            "--emitRefConfidence GVCF" \
+            "--max_alternate_alleles 3" \
+            "--contamination_fraction_to_filter 0.0" \
+            "--input $bam" \
+            "--output $OUT/tmp.g.vcf.gz"
+
+    execute "$tabix $OUT/tmp.g.vcf.gz"
+
+    execute "java -Xmx4096m -jar $gatk GenotypeGVCFs" \
+            "--reference $REF" \
+            "--intervals $BED" \
+            "--variant $OUT/tmp.g.vcf.gz" \
+            "--output $OUT/tmp.germline.unfiltered.vcf.gz"
+    
+    execute "java -Xmx4096m -jar $picard FilterVcf" \
+             "VALIDATION_STRINGENCY=SILENT" \
+             "CREATE_INDEX=true" \
+             "I=$OUT/tmp.germline.unfiltered.vcf.gz" \
+             "O=$germline_vcf" \
+             "MIN_AB=0.2 MIN_DP=0 MIN_GQ=20 MAX_FS=50.0 MIN_QD=6.0"  
+
+    execute "rm $OUT/tmp.g.vcf.gz $OUT/tmp.germline.unfiltered.vcf.gz"
+
+    # Somatic Calling
     execute "$vddir/bin/VarDict" \
             "-G $REF" \
             "-N $SAMPLE -b $bam" \
@@ -206,7 +254,7 @@ for datatype in "raw" "consensus"; do
     
     execute "java -Xmx2g -jar $fgbio FilterSomaticVcf" \
             "--input $OUT/sorted.vcf" \
-            "--output $vcf" \
+            "--output $somatic_vcf" \
             "--bam $bam" \
             "--min-mapping-quality 1" \
             "--end-repair-distance 15" \

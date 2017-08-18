@@ -27,8 +27,10 @@ function initialize() {
     IFS=$'\n\t'
     detect_platform
     bwa=$P/bin/$PLATFORM/bwa
+    tabix=$P/bin/$PLATFORM/tabix
     picard=$P/bin/picard.jar
     fgbio=$P/bin/fgbio.jar
+    gatk=$P/bin/gatk.jar
     vddir=$P/bin/VarDictJava
     check_dependencies
 }
