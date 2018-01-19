@@ -134,10 +134,13 @@ execute "java -Xmx2g -jar $fgbio FastqToBam" \
 execute "java -Xmx256m -jar $picard SamToFastq INPUT=$raw_unmapped_bam F=/dev/stdout QUIET=true INTERLEAVE=true" \
         " | $bwa mem -t $THREADS -p $REF /dev/stdin" \
         " | java -Xmx2g -jar $picard MergeBamAlignment VALIDATION_STRINGENCY=SILENT CREATE_INDEX=true QUIET=true" \
-        "    UNMAPPED=$raw_unmapped_bam ALIGNED=/dev/stdin O=$raw_mapped_bam" \
+        "    UNMAPPED=$raw_unmapped_bam ALIGNED=/dev/stdin O=/dev/stdout" \
         "    R=$REF " \
         "    ATTRIBUTES_TO_RETAIN=X0 ATTRIBUTES_TO_RETAIN=ZS ATTRIBUTES_TO_RETAIN=ZI ATTRIBUTES_TO_RETAIN=ZM ATTRIBUTES_TO_RETAIN=ZC ATTRIBUTES_TO_RETAIN=ZN" \
-        "    RV=cd RV=ce ORIENTATIONS=FR MAX_GAPS=-1 SO=coordinate ALIGNER_PROPER_PAIR_FLAGS=false"
+        "    RV=cd RV=ce ORIENTATIONS=FR MAX_GAPS=-1 SO=coordinate ALIGNER_PROPER_PAIR_FLAGS=false" \
+        " |  java -Xmx2g -jar $fgbio FilterBam" \
+        " --input /dev/stdin --output $raw_mapped_bam --min-insert-size 55 --remove-duplicates false --min-map-q 0" \
+        " --remove-secondary-alignments false"
 
 execute "java -Xmx4g -jar $picard MarkDuplicates CREATE_INDEX=true" \
         "I=$raw_mapped_bam O=$raw_deduped_bam M=$OUT/duplicate_metrics.txt BARCODE_TAG=RX"
@@ -158,10 +161,13 @@ execute "java -Xmx4g -jar $fgbio CallMolecularConsensusReads" \
 execute "java -Xmx256m -jar $picard SamToFastq INPUT=$cons_unmapped_bam F=/dev/stdout QUIET=true INTERLEAVE=true" \
         " | $bwa mem -t $THREADS -p $REF /dev/stdin" \
         " | java -Xmx2g -jar $picard MergeBamAlignment VALIDATION_STRINGENCY=SILENT CREATE_INDEX=true QUIET=true" \
-        "    UNMAPPED=$cons_unmapped_bam ALIGNED=/dev/stdin O=$cons_mapped_bam" \
+        "    UNMAPPED=$cons_unmapped_bam ALIGNED=/dev/stdin O=/dev/stdout" \
         "    R=$REF " \
         "    ATTRIBUTES_TO_RETAIN=X0 ATTRIBUTES_TO_RETAIN=ZS ATTRIBUTES_TO_RETAIN=ZI ATTRIBUTES_TO_RETAIN=ZM ATTRIBUTES_TO_RETAIN=ZC ATTRIBUTES_TO_RETAIN=ZN" \
-        "    RV=cd RV=ce ORIENTATIONS=FR MAX_GAPS=-1 SO=coordinate ALIGNER_PROPER_PAIR_FLAGS=false"
+        "    RV=cd RV=ce ORIENTATIONS=FR MAX_GAPS=-1 SO=coordinate ALIGNER_PROPER_PAIR_FLAGS=false" \
+        " |  java -Xmx2g -jar $fgbio FilterBam" \
+        " --input /dev/stdin --output $cons_mapped_bam --min-insert-size 55 --remove-duplicates false --min-map-q 0" \
+        " --remove-secondary-alignments false"
 
 if [ $MIN -eq 1 ];  then QUAL=30; else QUAL="44"; fi
 
