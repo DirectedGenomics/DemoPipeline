@@ -95,6 +95,6 @@ The pipeline is executed by running the `pipeline.sh` script.  If run with no ar
   r1.fq.gz r2.fq.gz i2.fq.gz
 ```
 
-The pipeline requires _three_ fastq files as input and they must be in the expected order: read 1, followed by read 2, followed by the index read containing the UMIs (I2).
+The pipeline requires _three_ fastq files as input and they must be in the expected order: read 1, followed by read 2, followed by the index read containing the UMIs (I2).  If your fastq files were generated with a version of bcl2fastq that puts the UMI into the read names and not into a third file the extract-umis.sh script can be used to generate the third fastq file with the UMI sequences.
 
 During execution the pipeline will emit log messages regarding it's progress and will also emit the full commands used for each step.  The results of the pipeline can be duplicated exactly by copying and pasting these commands, in order, into a script or terminal!
