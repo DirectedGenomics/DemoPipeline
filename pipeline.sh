@@ -36,7 +36,7 @@ BED=""
 SAMPLE="testsample"
 THREADS=4
 MIN=1
-GATK_VERSION="4.beta.3"
+GATK_VERSION="4.1.6.0"
 GATK_URL="https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip"
 
 usage() {
