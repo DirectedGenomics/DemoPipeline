@@ -80,7 +80,7 @@ if [[ -z "$FQU" ]]; then usage; echo; echo "Error: UMI fastq file must be suppli
 ################################################################################
 # Environment setup
 ################################################################################
-P=`dirname $0`
+P=$(dirname $0)
 source $P/common.sh
 initialize
 
@@ -104,7 +104,7 @@ if [ ! -f $P/bin/gatk.jar ]; then
     banner "Downloading GATK4..."
     if $(which wget > /dev/null); then
          wget -qO $P/gatk.zip $GATK_URL
-     elif $(which curl > /dev/null); then
+    elif $(which curl > /dev/null); then
         curl -Lso $P/gatk.zip $GATK_URL
     else
         fail "wget or curl must be installed and available in order to download GATK."
@@ -196,8 +196,6 @@ for datatype in "raw" "dedup"; do
              "I=$out_dir/tmp.germline.unfiltered.vcf.gz" \
              "O=$germline_vcf" \
              "MIN_AB=0.2 MIN_DP=0 MIN_GQ=20 MAX_FS=50.0 MIN_QD=6.0"
-
-    #execute "rm $out_dir/tmp.g.vcf.gz $out_dir/tmp.germline.unfiltered.vcf.gz"
 
 done
 

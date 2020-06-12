@@ -82,74 +82,67 @@ if [[ -z "$READSTRUCT" ]]; then usage; echo; echo "Error: read structure paramet
 ################################################################################
 # Environment setup
 ################################################################################
-P=`dirname $0`
+P=$(dirname $0)
 source $P/common.sh
 initialize
 
-num_samples=`wc -l $SAMPLEFILE | awk '{print $1 -1}'`
-num_lanes=`grep LaneCount $RUN/RunInfo.xml | awk '{print $2}' | awk -F"=" '{print $2}' | sed s/\"/""/g`
-flowcell=`grep -m 1 Flowcell $RUN/RunInfo.xml | sed "s/.*<Flowcell>\(.*\)<\/Flowcell>.*/\1/"`
-num_barcodes=`echo $READSTRUCT | sed 's/\(.\)/&\n/g' | grep B | wc -l`
+execute "mkdir -p $OUT"
+
+num_samples=$(egrep [AGCTN] $SAMPLEFILE | wc -l |  awk '{print $1}')
+num_lanes=$(xpath $RUN/RunInfo.xml "string(RunInfo/Run/FlowcellLayout/@LaneCount)" 2> /dev/null)
+flowcell=$(xpath $RUN/RunInfo.xml "RunInfo/Run/Flowcell/text()" 2> /dev/null)
+num_barcodes=$(echo $READSTRUCT | tr -cd "B" | wc -c)
 
 #write lib params file header
-header=""
-extr_header=""
-if [ $num_barcodes -eq 1 ]; then
-  header=`awk -v OFS='\t' 'BEGIN {print "OUTPUT_PREFIX","SAMPLE_ALIAS","LIBRARY_NAME","BARCODE_1"}'`
-  extr_header=`awk -v OFS='\t' 'BEGIN {print "OUTPUT","SAMPLE_ALIAS","LIBRARY_NAME","barcode_sequence_1"}'`
-elif [ $num_barcodes -eq 2 ]; then
-  header=`awk -v OFS='\t' 'BEGIN {print "OUTPUT_PREFIX","SAMPLE_ALIAS","LIBRARY_NAME","BARCODE_1","BARCODE_2"}'`
-  extr_header=`awk -v OFS='\t' 'BEGIN {print "OUTPUT","SAMPLE_ALIAS","LIBRARY_NAME","barcode_sequence_1","barcode_sequence_2"}'`
-else
-  header=`awk -v OFS='\t' 'BEGIN {print "OUTPUT_PREFIX","SAMPLE_ALIAS","LIBRARY_NAME"}'`
-  extr_header=`awk -v OFS='\t' 'BEGIN {print "OUTPUT","SAMPLE_ALIAS","LIBRARY_NAME"}'`
+header="OUTPUT_PREFIX\tSAMPLE_ALIAS\tLIBRARY_NAME"
+extr_header="OUTPUT\tSAMPLE_ALIAS\tLIBRARY_NAME"
+if [ $num_barcodes -ge 1 ]; then
+    header="$header\tBARCODE_1"
+    extr_header="$extr_header\tbarcode_sequence_1"
+fi
+if [ $num_barcodes -ge 2 ]; then
+    header="$header\tBARCODE_2"
+    extr_header="$extr_header\tbarcode_sequence_2"
 fi
 
-
-for lane in `seq 1 $num_lanes`; do
+for lane in $(seq 1 $num_lanes); do
     banner "Demultiplexing lane $lane ..."
 
     lib_params_file=$OUT/library_params.l"$lane".txt
     lib_extract_file=$OUT/library_params_extract.l"$lane".txt
 
-    echo "$header" > $lib_params_file
-    echo "$extr_header" > $lib_extract_file
+    echo -e "$header" > $lib_params_file
+    echo -e "$extr_header" > $lib_extract_file
 
     {
     read
     while read -r sample barcode1 barcode2;
     do
-        if [ $num_barcodes -eq 1 ]; then
-            awk -v var=$lane -v out="$OUT" -v s="$sample" -v b1="$barcode1" -v b2="$barcode2" \
-                'BEGIN {print out"/"s".l"var"\t"s"\t"s"\t"b1}' >> $lib_params_file
-            awk -v var=$lane -v out="$OUT" -v s="$sample" -v b1="$barcode1" -v b2="$barcode2" \
-                'BEGIN {print out"/"s".l"var"\t"s"\t"s"\t"b1}' >> $lib_extract_file
-        elif [ $num_barcodes -eq 2 ]; then
-            awk -v var=$lane -v out="$OUT" -v s="$sample" -v b1="$barcode1" -v b2="$barcode2" \
-                'BEGIN {print out"/"s".l"var"\t"s"\t"s"\t"b1"\t"b2}' >> $lib_params_file
-            awk -v var=$lane -v out="$OUT" -v s="$sample" -v b1="$barcode1" -v b2="$barcode2" \
-                'BEGIN {print out"/"s".l"var"\t"s"\t"s"\t"b1"\t"b2}' >> $lib_extract_file
-        else
-            awk -v var=$lane -v out="$OUT" -v s="$sample" 'BEGIN {print out"/"s".l"var"\t"s"\t"s}' >> $lib_params_file
-    fi
-
+        values="${OUT}/${sample}.l${lane}\t${sample}\t${sample}"
+        if [ $num_barcodes -ge 1 ]; then
+          values="$values\t$barcode1"
+        fi
+        if [ $num_barcodes -ge 2 ]; then
+          values="$values\t$barcode2"
+        fi
+        echo -e $values >> $lib_params_file
+        echo -e $values >> $lib_extract_file
     done
     } < $SAMPLEFILE
 
     if [ $num_barcodes -gt 0 ]; then
         execute "java -Xmx4g -jar $picard ExtractIlluminaBarcodes" \
-                "VALIDATION_STRINGENCY=SILENT CREATE_INDEX=true BASECALLS_DIR=$RUN/Data/Intensities/BaseCalls/" \
+                "VALIDATION_STRINGENCY=SILENT BASECALLS_DIR=$RUN/Data/Intensities/BaseCalls/" \
                 "OUTPUT_DIR=$RUN/Data/Intensities/BaseCalls/ READ_STRUCTURE=$READSTRUCT BARCODE_FILE=$lib_extract_file" \
                 "METRICS_FILE=$RUN/Data/Intensities/BaseCalls/barcode_counts.lane-$lane.metrics.txt" \
-                "COMPRESS_OUTPUTS=true NUM_PROCESSORS=4 MAX_MISMATCHES=2 LANE=$lane"
+                "COMPRESS_OUTPUTS=true NUM_PROCESSORS=$THREADS MAX_MISMATCHES=2 LANE=$lane"
     fi
 
     execute "java -Xmx12g -jar $picard IlluminaBasecallsToFastq" \
-            "VALIDATION_STRINGENCY=SILENT CREATE_INDEX=true BASECALLS_DIR=$RUN/Data/Intensities/BaseCalls/" \
+            "VALIDATION_STRINGENCY=SILENT BASECALLS_DIR=$RUN/Data/Intensities/BaseCalls/" \
             "READ_STRUCTURE=$READSTRUCT MULTIPLEX_PARAMS=$lib_params_file" \
-            "INCLUDE_NON_PF_READS=true IGNORE_UNEXPECTED_BARCODES=true LANE=$lane RUN_BARCODE=$flowcell" \
-            "NUM_PROCESSORS=4 READ_NAME_FORMAT=ILLUMINA"
+            "INCLUDE_NON_PF_READS=false IGNORE_UNEXPECTED_BARCODES=true LANE=$lane RUN_BARCODE=$flowcell" \
+            "NUM_PROCESSORS=$THREADS READ_NAME_FORMAT=ILLUMINA"
 done
-
 
 banner "Completed."
