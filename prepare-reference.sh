@@ -59,7 +59,7 @@ if [[ ! -e $FASTA ]]; then usage; echo; echo "Error: file $FASTA does not exist.
 ################################################################################
 # Environment setup
 ################################################################################
-P=`dirname $0`
+P=$(dirname $0)
 source $P/common.sh
 initialize
 

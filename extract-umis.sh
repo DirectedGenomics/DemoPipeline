@@ -60,7 +60,7 @@ if [[ ! -f $IN ]]; then usage; echo; echo "Error: input file $IN does not exist.
 ################################################################################
 # Environment setup
 ################################################################################
-P=`dirname $0`
+P=$(dirname $0)
 source $P/common.sh
 initialize
 

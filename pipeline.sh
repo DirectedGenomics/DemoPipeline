@@ -36,7 +36,7 @@ BED=""
 SAMPLE="testsample"
 THREADS=4
 MIN=1
-GATK_VERSION="4.beta.3"
+GATK_VERSION="4.1.6.0"
 GATK_URL="https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip"
 
 usage() {
@@ -84,7 +84,7 @@ if [[ -z "$FQU" ]]; then usage; echo; echo "Error: three fastq files must be sup
 ################################################################################
 # Environment setup
 ################################################################################
-P=`dirname $0`
+P=$(dirname $0)
 source $P/common.sh
 initialize
 
@@ -110,7 +110,7 @@ if [ ! -f $P/bin/gatk.jar ]; then
     banner "Downloading GATK4..."
     if $(which wget > /dev/null); then
          wget -qO $P/gatk.zip $GATK_URL
-     elif $(which curl > /dev/null); then
+    elif $(which curl > /dev/null); then
         curl -Lso $P/gatk.zip $GATK_URL
     else
         fail "wget or curl must be installed and available in order to download GATK."
